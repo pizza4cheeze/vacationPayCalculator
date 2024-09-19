@@ -1,6 +1,7 @@
 package grushevkaya.onboarding.neoflex.service;
 
 import grushevkaya.onboarding.neoflex.dto.VacationPayCalcInputTO;
+import grushevkaya.onboarding.neoflex.dto.VacationPayOutputTO;
 import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,20 +20,30 @@ public class VacationPayCalcService {
         this.isDayOffService = isDayOffService;
     }
 
-    public Double calcVacation(VacationPayCalcInputTO vacationPayCalcInputTO) {
+    public VacationPayOutputTO calcVacation(VacationPayCalcInputTO vacationPayCalcInputTO) {
         Double result = -1.0;
+        VacationPayOutputTO vacationPayOutputTO = new VacationPayOutputTO();
+        if (vacationPayCalcInputTO.getVacationDays() != null && vacationPayCalcInputTO.getVacationStartDate() != null &&
+                vacationPayCalcInputTO.getVacationEndDate() != null) {
+            vacationPayOutputTO.addLog("Information is redundant. Calculation was made according to the exact dates of the vacation");
+        }
 
         if (vacationPayCalcInputTO.getVacationStartDate() != null && vacationPayCalcInputTO.getVacationEndDate() != null) {
             try {
                 result = calcByDates(vacationPayCalcInputTO);
             } catch (BadRequestException e) {
                 e.printStackTrace();
+                vacationPayOutputTO.addLog(e.getMessage());
                 result = calcByDaysAmount(vacationPayCalcInputTO);
             }
         } else if (vacationPayCalcInputTO.getVacationDays() != null) {
             result = calcByDaysAmount(vacationPayCalcInputTO);
-        }
-        return result;
+        } else vacationPayOutputTO.addLog("Not possible to calculate the amount of vacation pay. Not enough input data");
+
+        result = Math.round(result * 100) / 100.0;
+
+        vacationPayOutputTO.setCalculatedVacationPay(result);
+        return vacationPayOutputTO;
     }
 
     private Double calcByDates(VacationPayCalcInputTO vacationPayCalcInputTO) throws BadRequestException {
