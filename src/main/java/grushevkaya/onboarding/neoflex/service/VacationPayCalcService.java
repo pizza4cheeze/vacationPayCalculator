@@ -1,15 +1,13 @@
 package grushevkaya.onboarding.neoflex.service;
 
 import grushevkaya.onboarding.neoflex.dto.VacationPayCalcInputTO;
+import org.apache.coyote.BadRequestException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class VacationPayCalcService {
@@ -21,35 +19,51 @@ public class VacationPayCalcService {
         this.isDayOffService = isDayOffService;
     }
 
-    public String calcVacation(VacationPayCalcInputTO vacationPayCalcInputTO) throws IOException {
-        Double result;
-        if (vacationPayCalcInputTO.getVacationDays() != null) {
-            result = ((double) vacationPayCalcInputTO.getVacationDays() / workingDaysAverageAmount) * vacationPayCalcInputTO.getAverageSalary();
-        } else {
-            // check for correctness of dates
-            LocalDate startDate = vacationPayCalcInputTO.getVacationStartDate();
-            LocalDate endDate = vacationPayCalcInputTO.getVacationEndDate();
-            if (startDate.isAfter(endDate)) {
-                throw new IOException("the start date of the vacation cannot be later than the end date of the vacation");
-            }
+    public Double calcVacation(VacationPayCalcInputTO vacationPayCalcInputTO) {
+        Double result = -1.0;
 
-            // creating dates list
-            List<LocalDate> dates = new ArrayList<>();
-            LocalDate currDate = startDate;
-            while (currDate.isBefore(endDate)) {
-                dates.add(currDate);
-                currDate = currDate.plusDays(1);
+        if (vacationPayCalcInputTO.getVacationStartDate() != null && vacationPayCalcInputTO.getVacationEndDate() != null) {
+            try {
+                result = calcByDates(vacationPayCalcInputTO);
+            } catch (BadRequestException e) {
+                e.printStackTrace();
+                result = calcByDaysAmount(vacationPayCalcInputTO);
             }
-
-            // check dates for each
-            Double payForDay = vacationPayCalcInputTO.getAverageSalary() / workingDaysAverageAmount;
-            int totalDays = 0;
-            for (LocalDate date : dates) {
-                if (isDayOffService.checkIfDayOff(date)) totalDays++;
-            }
-
-            result = payForDay * totalDays;
+        } else if (vacationPayCalcInputTO.getVacationDays() != null) {
+            result = calcByDaysAmount(vacationPayCalcInputTO);
         }
-        return String.valueOf(result);
+        return result;
+    }
+
+    private Double calcByDates(VacationPayCalcInputTO vacationPayCalcInputTO) throws BadRequestException {
+        Double result;
+        // check for correctness of dates
+        LocalDate startDate = vacationPayCalcInputTO.getVacationStartDate();
+        LocalDate endDate = vacationPayCalcInputTO.getVacationEndDate();
+        if (startDate.isAfter(endDate)) {
+            throw new BadRequestException("Start date cannot be after end date");
+        }
+
+        // creating dates list
+        List<LocalDate> dates = new ArrayList<>();
+        LocalDate currDate = startDate;
+        while (currDate.isBefore(endDate)) {
+            dates.add(currDate);
+            currDate = currDate.plusDays(1);
+        }
+
+        // check dates for each
+        Double payForDay = vacationPayCalcInputTO.getAverageSalary() / workingDaysAverageAmount;
+        int totalDays = 0;
+        for (LocalDate date : dates) {
+            if (isDayOffService.checkIfDayOff(date)) totalDays++;
+        }
+
+        result = payForDay * totalDays;
+        return result;
+    }
+
+    private static Double calcByDaysAmount(VacationPayCalcInputTO vacationPayCalcInputTO) {
+        return ((double) vacationPayCalcInputTO.getVacationDays() / workingDaysAverageAmount) * vacationPayCalcInputTO.getAverageSalary();
     }
 }

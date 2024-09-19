@@ -10,7 +10,6 @@ import java.time.LocalDate;
 @Getter
 @Setter
 @AllArgsConstructor
-@NoArgsConstructor
 @Validated
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class VacationPayCalcInputTO {
